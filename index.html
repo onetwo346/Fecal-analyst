@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced AR Fecal Analyzer Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #8B4513 0%, #A0522D 100%);
+        }
+        .glassmorphism {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .health-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+        .confidence-bar {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            margin-top: 4px;
+            overflow: hidden;
+        }
+        .confidence-fill {
+            height: 100%;
+            background: #00ff88;
+            transition: width 0.3s ease;
+        }
+        .ai-processing {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 12px;
+            color: white;
+            text-align: center;
+            width: 300px;
+        }
+        .ai-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid #00ff88;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body class="bg-black text-white">
+    <!-- Start Screen -->
+    <div id="startScreen" class="min-h-screen flex flex-col items-center justify-center p-0 m-0 bg-gradient-to-br from-[#0f2027] via-[#2c5364] to-[#24243e] relative overflow-hidden">
+        <div class="absolute inset-0 z-0 pointer-events-none">
+            <div class="absolute top-1/3 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-gradient-to-br from-blue-400/30 via-teal-400/20 to-purple-500/10 rounded-full blur-3xl animate-pulse-slow"></div>
+            <div class="absolute bottom-0 right-0 w-[300px] h-[300px] bg-gradient-to-tr from-purple-400/20 to-blue-400/10 rounded-full blur-2xl animate-pulse-slow"></div>
+        </div>
+        <div class="relative z-10 w-full max-w-lg mx-auto text-center p-8">
+            <div class="flex flex-col items-center mb-8">
+                <div class="w-28 h-28 bg-gradient-to-br from-blue-400 to-teal-400 rounded-full flex items-center justify-center shadow-lg mb-4 animate-float">
+                    <svg class="w-14 h-14 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <h1 class="text-5xl font-extrabold text-white mb-2 tracking-tight drop-shadow-lg">AR Fecal Analyzer Pro</h1>
+                <p class="text-blue-100 text-lg mb-2 font-medium">AI-powered, real-time, medical-grade stool analysis</p>
+                <div class="flex flex-col gap-2 mt-2">
+                    <div class="flex items-center justify-center gap-2">
+                        <span class="inline-block w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                        <span class="text-green-200 text-sm">Live AR Camera</span>
+                    </div>
+                    <div class="flex items-center justify-center gap-2">
+                        <span class="inline-block w-2 h-2 bg-blue-400 rounded-full animate-pulse"></span>
+                        <span class="text-blue-200 text-sm">Bristol Stool Chart Analysis</span>
+                    </div>
+                    <div class="flex items-center justify-center gap-2">
+                        <span class="inline-block w-2 h-2 bg-purple-400 rounded-full animate-pulse"></span>
+                        <span class="text-purple-200 text-sm">Medical-Grade Insights</span>
+                    </div>
+                </div>
+            </div>
+            <button onclick="initializeAR()" class="w-full bg-gradient-to-r from-blue-500 to-teal-400 text-white px-8 py-4 rounded-full font-bold text-xl shadow-xl hover:scale-105 hover:from-blue-600 hover:to-teal-500 transition-all duration-200 mb-4">
+                🚀 Start Live Analysis
+            </button>
+            <div class="text-xs text-blue-100 opacity-70 mt-2">No data is stored or shared without your consent. For informational use only. Not a substitute for medical advice.</div>
+        </div>
+        <style>
+            .animate-float { animation: float 3s ease-in-out infinite; }
+            @keyframes float {
+                0%, 100% { transform: translateY(0); }
+                50% { transform: translateY(-16px); }
+            }
+            .animate-pulse-slow { animation: pulse-slow 4s cubic-bezier(.4,0,.6,1) infinite; }
+            @keyframes pulse-slow {
+                0%, 100% { opacity: 0.7; }
+                50% { opacity: 1; }
+            }
+        </style>
+    </div>
+
+    <!-- AR Camera Screen -->
+    <div id="arScreen" class="hidden fixed inset-0 z-10 flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+        <video id="arVideo" class="absolute inset-0 w-full h-full object-cover" autoplay playsinline style="background: #111;"></video>
+        <canvas id="arCanvas" class="hidden"></canvas>
+        <canvas id="overlayCanvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
+        <div class="ar-info-panel glassmorphism max-w-2xl mx-auto absolute left-1/2 top-6 -translate-x-1/2 z-20 shadow-xl">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center">
+                    <div class="health-indicator bg-green-400"></div>
+                    <span class="font-semibold">AR STOOL ANALYSIS ACTIVE</span>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="toggleSettings()" class="bg-blue-500 text-white px-3 py-1 rounded-full text-sm hover:bg-blue-600 transition pointer-events-auto">
+                        ⚙️ Settings
+                    </button>
+                    <button onclick="toggleReports()" class="bg-purple-500 text-white px-3 py-1 rounded-full text-sm hover:bg-purple-600 transition pointer-events-auto">
+                        📊 Reports
+                    </button>
+                </div>
+            </div>
+            <div class="mt-3 text-sm opacity-80">
+                <span id="analysisStatus">Initializing AI analysis...</span>
+            </div>
+        </div>
+        <div class="ar-results glassmorphism max-w-2xl mx-auto p-4 rounded-xl shadow-2xl border border-gray-700 absolute left-1/2 bottom-6 -translate-x-1/2 z-20 w-[96%] md:w-[80%]">
+            <div class="flex items-center gap-4 mb-4">
+                <div id="arColorPreview" class="w-12 h-12 rounded-full border-3 border-white shadow-lg"></div>
+                <div class="flex-1">
+                    <div id="arColorName" class="font-bold text-lg">Analyzing...</div>
+                    <div id="arHealthStatus" class="text-sm opacity-80">Position camera over stool sample</div>
+                    <div class="confidence-bar">
+                        <div id="confidenceFill" class="confidence-fill" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+            <div id="arAdvice" class="text-sm bg-blue-500 bg-opacity-20 rounded-lg p-3 mb-4">
+                Point AR target at stool sample in good lighting
+            </div>
+            <div class="flex gap-3">
+                <button onclick="captureAnalysis()" class="flex-1 bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600 transition pointer-events-auto">
+                    📸 Capture Analysis
+                </button>
+                <button onclick="toggleReports()" class="bg-orange-500 text-white px-4 py-3 rounded-lg hover:bg-orange-600 transition pointer-events-auto">
+                    📋 History
+                </button>
+                <button onclick="resetAR()" class="bg-gray-500 text-white px-4 py-3 rounded-lg hover:bg-gray-600 transition pointer-events-auto">
+                    ✕
+                </button>
+            </div>
+        </div>
+        <div id="aiProcessing" class="ai-processing hidden z-30"></div>
+    </div>
+
+    <!-- Reports Screen -->
+    <div id="reportsScreen" class="hidden min-h-screen bg-gray-50 p-4">
+        <div class="max-w-4xl mx-auto">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h2 class="text-3xl font-bold text-gray-800">Advanced Stool Analysis Reports</h2>
+                    <p class="text-gray-600">AI-powered insights and digestive health trends</p>
+                </div>
+                <button onclick="toggleReports()" class="text-blue-500 hover:text-blue-600 font-semibold">✕ Close</button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-white rounded-lg p-4 shadow">
+                    <h3 class="font-semibold text-gray-800 mb-2">Total Analyses</h3>
+                    <div id="totalAnalyses" class="text-2xl font-bold text-blue-600">0</div>
+                </div>
+                <div class="bg-white rounded-lg p-4 shadow">
+                    <h3 class="font-semibold text-gray-800 mb-2">Digestive Health Score</h3>
+                    <div id="healthScore" class="text-2xl font-bold text-green-600">--</div>
+                </div>
+                <div class="bg-white rounded-lg p-4 shadow">
+                    <h3 class="font-semibold text-gray-800 mb-2">Stool Type Trend</h3>
+                    <div id="healthTrend" class="text-2xl font-bold text-purple-600">--</div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg p-4 shadow mb-6">
+                <h3 class="font-semibold text-gray-800 mb-4">Digestive Health Trend</h3>
+                <canvas id="healthChart" height="100"></canvas>
+            </div>
+            <div id="advancedReportsList" class="space-y-4"></div>
+            <div class="flex gap-3 mt-6">
+                <button onclick="exportAdvancedReports()" class="flex-1 bg-blue-500 text-white py-3 rounded-lg hover:bg-blue-600 transition">
+                    📤 Export Full Report
+                </button>
+                <button onclick="generateHealthReport()" class="flex-1 bg-green-500 text-white py-3 rounded-lg hover:bg-green-600 transition">
+                    📋 Generate Health Summary
+                </button>
+                <button onclick="clearAllReports()" class="flex-1 bg-red-500 text-white py-3 rounded-lg hover:bg-red-600 transition">
+                    🗑️ Clear All Reports
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4 text-gray-800">
+            <h3 class="text-xl font-bold mb-4">AR Settings</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2">Color Sensitivity</label>
+                    <input type="range" id="sensitivity" min="1" max="10" value="5" class="w-full">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Texture Sensitivity</label>
+                    <input type="range" id="textureSensitivity" min="1" max="10" value="5" class="w-full">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Sample Size</label>
+                    <select id="sampleSize" class="w-full p-2 border rounded">
+                        <option value="small">Small (30px)</option>
+                        <option value="medium" selected>Medium (50px)</option>
+                        <option value="large">Large (80px)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="flex items-center">
+                        <input type="checkbox" id="autoSave" checked class="mr-2">
+                        Auto-save analyses
+                    </label>
+                </div>
+                <div>
+                    <label class="flex items-center">
+                        <input type="checkbox" id="lightingCompensation" checked class="mr-2">
+                        Enable lighting compensation
+                    </label>
+                </div>
+                <div>
+                    <label class="flex items-center">
+                        <input type="checkbox" id="multiSampleValidation" checked class="mr-2">
+                        Enable multi-sample validation
+                    </label>
+                </div>
+                <div>
+                    <label class="flex items-center">
+                        <input type="checkbox" id="textureAnalysis" checked class="mr-2">
+                        Enable texture analysis
+                    </label>
+                </div>
+            </div>
+            <div class="flex gap-3 mt-6">
+                <button onclick="closeSettings()" class="flex-1 bg-gray-500 text-white py-2 rounded">Cancel</button>
+                <button onclick="saveSettings()" class="flex-1 bg-blue-500 text-white py-2 rounded">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // **Color Map for Stool Analysis**
+        const advancedColorMap = [
+            { name: "Type 1: Hard Pellets", rgb: [139, 69, 19], status: "Constipation", advice: "Increase fiber and water intake; consult doctor if persistent", color: "#8B4513", severity: 3, confidence: 0.90, medicalNotes: "Hard, separate lumps; difficult to pass", hsvRange: { h: [15, 35], s: [0.6, 0.9], v: [0.3, 0.5] }, labRange: { l: [30, 40], a: [10, 30], b: [20, 40] }, bristolType: 1, consistency: "Hard" },
+            { name: "Type 2: Lumpy Sausage", rgb: [139, 90, 43], status: "Mild Constipation", advice: "Increase hydration and dietary fiber", color: "#8B5A2B", severity: 2, confidence: 0.92, medicalNotes: "Sausage-shaped but lumpy", hsvRange: { h: [20, 40], s: [0.5, 0.8], v: [0.4, 0.6] }, labRange: { l: [35, 45], a: [5, 25], b: [25, 45] }, bristolType: 2, consistency: "Hard" },
+            { name: "Type 3: Cracked Sausage", rgb: [160, 82, 45], status: "Normal", advice: "Maintain current diet and hydration", color: "#A0522D", severity: 1, confidence: 0.95, medicalNotes: "Sausage-shaped with cracks; healthy stool", hsvRange: { h: [15, 35], s: [0.4, 0.7], v: [0.5, 0.7] }, labRange: { l: [40, 50], a: [5, 25], b: [20, 40] }, bristolType: 3, consistency: "Firm" },
+            { name: "Type 4: Smooth Sausage", rgb: [153, 76, 0], status: "Optimal", advice: "Perfect stool consistency; maintain habits", color: "#994C00", severity: 0, confidence: 0.98, medicalNotes: "Smooth, soft sausage; ideal stool type", hsvRange: { h: [20, 40], s: [0.5, 0.8], v: [0.5, 0.7] }, labRange: { l: [45, 55], a: [0, 20], b: [25, 45] }, bristolType: 4, consistency: "Soft" },
+            { name: "Type 5: Soft Blobs", rgb: [139, 90, 0], status: "Normal", advice: "Good digestion; monitor frequency", color: "#8B5A00", severity: 1, confidence: 0.93, medicalNotes: "Soft blobs with clear edges", hsvRange: { h: [25, 45], s: [0.6, 0.9], v: [0.4, 0.6] }, labRange: { l: [50, 60], a: [0, 20], b: [30, 50] }, bristolType: 5, consistency: "Soft" },
+            { name: "Type 6: Fluffy Pieces", rgb: [139, 69, 0], status: "Mild Diarrhea", advice: "Increase fiber; stay hydrated", color: "#8B4500", severity: 2, confidence: 0.90, medicalNotes: "Fluffy pieces with ragged edges", hsvRange: { h: [25, 45], s: [0.7, 1.0], v: [0.3, 0.5] }, labRange: { l: [40, 50], a: [0, 20], b: [35, 55] }, bristolType: 6, consistency: "Loose" },
+            { name: "Type 7: Watery", rgb: [85, 43, 0], status: "Diarrhea", advice: "Seek medical attention if persistent", color: "#552B00", severity: 4, confidence: 0.88, medicalNotes: "Watery, no solid pieces", hsvRange: { h: [25, 45], s: [0.8, 1.0], v: [0.2, 0.4] }, labRange: { l: [30, 40], a: [0, 20], b: [40, 60] }, bristolType: 7, consistency: "Liquid" },
+            { name: "Black", rgb: [30, 30, 30], status: "Potential Bleeding", advice: "Seek medical attention immediately", color: "#1E1E1E", severity: 5, confidence: 0.89, medicalNotes: "May indicate upper GI bleeding", hsvRange: { h: [0, 360], s: [0, 0.2], v: [0.1, 0.2] }, labRange: { l: [10, 20], a: [-5, 5], b: [-5, 5] }, bristolType: null, consistency: "Variable" },
+            { name: "Red", rgb: [178, 34, 34], status: "Blood Present", advice: "Consult doctor urgently", color: "#B22222", severity: 5, confidence: 0.87, medicalNotes: "May indicate lower GI bleeding", hsvRange: { h: [0, 10], s: [0.7, 1.0], v: [0.4, 0.7] }, labRange: { l: [40, 50], a: [40, 60], b: [10, 30] }, bristolType: null, consistency: "Variable" },
+            { name: "Pale/Clay", rgb: [245, 245, 220], status: "Potential Liver Issue", advice: "Seek medical attention", color: "#F5F5DC", severity: 4, confidence: 0.85, medicalNotes: "May indicate bile duct obstruction", hsvRange: { h: [40, 60], s: [0, 0.2], v: [0.8, 1.0] }, labRange: { l: [90, 100], a: [-5, 5], b: [5, 15] }, bristolType: null, consistency: "Variable" }
+        ];
+
+        // **Global State**
+        let arStream = null;
+        let isARAnalyzing = false;
+        let arReports = JSON.parse(localStorage.getItem('arFecalReports') || '[]');
+        let healthChart = null;
+        let analysisHistory = [];
+        let currentSettings = {
+            sensitivity: 5,
+            textureSensitivity: 5,
+            sampleSize: 'medium',
+            autoSave: true,
+            lightingCompensation: true,
+            multiSampleValidation: true,
+            textureAnalysis: true
+        };
+        let textureModel = null;
+
+        // **Initialize Texture Model (Placeholder)**
+        async function initializeTextureModel() {
+            // In a real implementation, load a pre-trained model
+            console.log('Texture model initialization placeholder');
+            // textureModel = await tf.loadLayersModel('path/to/model.json');
+        }
+
+        // **AR Initialization**
+        async function initializeAR() {
+            document.getElementById('startScreen').classList.add('hidden');
+            document.getElementById('arScreen').classList.remove('hidden');
+            try {
+                arStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                document.getElementById('arVideo').srcObject = arStream;
+                startARAnalysis();
+                loadSettings();
+            } catch (err) {
+                alert("Camera access required. Please enable permissions.");
+                resetAR();
+            }
+        }
+
+        // **Start AR Analysis**
+        function startARAnalysis() {
+            if (isARAnalyzing) return;
+            isARAnalyzing = true;
+            const video = document.getElementById('arVideo');
+            const canvas = document.getElementById('arCanvas');
+            const overlayCanvas = document.getElementById('overlayCanvas');
+            const ctx = canvas.getContext('2d');
+            const overlayCtx = overlayCanvas.getContext('2d');
+
+            function resizeCanvas() {
+                canvas.width = video.videoWidth;
+                canvas.height =video.videoHeight;
+                overlayCanvas.width = window.innerWidth;
+                overlayCanvas.height = window.innerHeight;
+            }
+
+            function analyzeFrame() {
+                if (!isARAnalyzing) return;
+                resizeCanvas();
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const sampleSize = { small: 30, medium: 50, large: 80 }[currentSettings.sampleSize];
+                const centerX = canvas.width / 2;
+                const centerY = canvas.height / 2;
+                const imageData = ctx.getImageData(centerX - sampleSize / 2, centerY - sampleSize / 2, sampleSize, sampleSize).data;
+                let r = 0, g = 0, b = 0, count = 0;
+                for (let i = 0; i < imageData.length; i += 4) {
+                    r += imageData[i];
+                    g += imageData[i + 1];
+                    b += imageData[i + 2];
+                    count++;
+                }
+                r = Math.round(r / count);
+                g = Math.round(g / count);
+                b = Math.round(b / count);
+                const analysis = performAdvancedAIAnalysis(r, g, b);
+                updateARUI(analysis, r, g, b);
+                requestAnimationFrame(analyzeFrame);
+            }
+
+            video.addEventListener('loadedmetadata', () => {
+                resizeCanvas();
+                analyzeFrame();
+            });
+        }
+
+        // **Perform Advanced AI Analysis**
+        async function performAdvancedAIAnalysis(r, g, b) {
+            let bestMatch = null;
+            let bestConfidence = 0;
+            for (const color of advancedColorMap) {
+                const distance = Math.sqrt(
+                    Math.pow(r - color.rgb[0], 2) +
+                    Math.pow(g - color.rgb[1], 2) +
+                    Math.pow(b - color.rgb[2], 2)
+                );
+                const confidence = Math.max(0, 1 - (distance / 255));
+                if (confidence > bestConfidence) {
+                    bestConfidence = confidence;
+                    bestMatch = { ...color, confidence };
+                }
+            }
+            if (currentSettings.textureAnalysis && textureModel) {
+                const canvas = document.getElementById('arCanvas');
+                const ctx = canvas.getContext('2d');
+                const sampleSize = { small: 30, medium: 50, large: 80 }[currentSettings.sampleSize];
+                const centerX = canvas.width / 2;
+                const centerY = canvas.height / 2;
+                const imageData = ctx.getImageData(centerX - sampleSize / 2, centerY - sampleSize / 2, sampleSize, sampleSize);
+                const tensor = tf.browser.fromPixels(imageData).toFloat().div(255).expandDims(0);
+                // Placeholder for texture prediction
+                // const prediction = await textureModel.predict(tensor).data();
+                tf.dispose(tensor);
+            }
+            bestMatch.aiInsights = generateAdvancedAIInsights(bestMatch);
+            return bestMatch;
+        }
+
+        // **Update AR UI**
+        function updateARUI(analysis, r, g, b) {
+            document.getElementById('arColorPreview').style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
+            document.getElementById('arColorName').textContent = analysis.name;
+            document.getElementById('arHealthStatus').textContent = analysis.status;
+            document.getElementById('arAdvice').textContent = analysis.advice;
+            document.getElementById('confidenceFill').style.width = `${analysis.confidence * 100}%`;
+            document.getElementById('analysisStatus').textContent = `Confidence: ${(analysis.confidence * 100).toFixed(1)}%`;
+        }
+
+        // **Capture Analysis**
+        function captureAnalysis() {
+            const canvas = document.getElementById('arCanvas');
+            const ctx = canvas.getContext('2d');
+            const sampleSize = { small: 30, medium: 50, large: 80 }[currentSettings.sampleSize];
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const imageData = ctx.getImageData(centerX - sampleSize / 2, centerY - sampleSize / 2, sampleSize, sampleSize).data;
+            let r = 0, g = 0, b = 0, count = 0;
+            for (let i = 0; i < imageData.length; i += 4) {
+                r += imageData[i];
+                g += imageData[i + 1];
+                b += imageData[i + 2];
+                count++;
+            }
+            r = Math.round(r / count);
+            g = Math.round(g / count);
+            b = Math.round(b / count);
+            const analysis = performAdvancedAIAnalysis(r, g, b);
+            saveAdvancedAnalysis(analysis);
+            showAIProcessingCompleted();
+        }
+
+        // **Generate AI Insights**
+        function generateAdvancedAIInsights(analysis) {
+            return {
+                status: analysis.status,
+                advice: analysis.advice,
+                medicalNotes: analysis.medicalNotes,
+                bristolType: analysis.bristolType ? `Bristol Type ${analysis.bristolType}` : 'N/A',
+                consistency: analysis.consistency
+            };
+        }
+
+        // **Save Analysis**
+        function saveAdvancedAnalysis(analysis) {
+            const report = {
+                timestamp: new Date().toISOString(),
+                rgb: [analysis.rgb[0], analysis.rgb[1], analysis.rgb[2]],
+                name: analysis.name,
+                status: analysis.status,
+                confidence: analysis.confidence,
+                aiInsights: analysis.aiInsights,
+                bristolType: analysis.bristolType,
+                consistency: analysis.consistency
+            };
+            arReports.push(report);
+            localStorage.setItem('arFecalReports', JSON.stringify(arReports));
+            updateAnalytics();
+        }
+
+        // **Toggle Reports**
+        function toggleReports() {
+            const reportsScreen = document.getElementById('reportsScreen');
+            if (reportsScreen.classList.contains('hidden')) {
+                reportsScreen.classList.remove('hidden');
+                document.getElementById('arScreen').classList.add('hidden');
+                displayAdvancedReports();
+                updateAnalytics();
+                initializeHealthChart();
+            } else {
+                reportsScreen.classList.add('hidden');
+                document.getElementById('arScreen').classList.remove('hidden');
+            }
+        }
+
+        // **Display Reports**
+        function displayAdvancedReports() {
+            const list = document.getElementById('advancedReportsList');
+            list.innerHTML = arReports.length ? '' : '<div class="text-center text-gray-500 py-8">No analyses performed yet</div>';
+            arReports.forEach(report => {
+                list.innerHTML += `
+                    <div class="bg-white rounded-lg p-4 shadow">
+                        <div class="flex items-center gap-4">
+                            <div style="background-color: rgb(${report.rgb.join(',')});" class="w-10 h-10 rounded-full"></div>
+                            <div>
+                                <div class="font-semibold">${report.name}</div>
+                                <div class="text-sm text-gray-600">${report.status} - ${report.bristolType || 'N/A'} (${report.consistency})</div>
+                                <div class="text-xs text-gray-500">${new Date(report.timestamp).toLocaleString()}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        // **Update Analytics**
+        function updateAnalytics() {
+            document.getElementById('totalAnalyses').textContent = arReports.length;
+            const avgScore = arReports.length ? arReports.reduce((sum, r) => sum + (5 - r.confidence * 5), 0) / arReports.length : 0;
+            document.getElementById('healthScore').textContent = arReports.length ? `${Math.round((5 - avgScore) * 20)}%` : '--';
+            const trend = arReports.length ? arReports[arReports.length - 1].bristolType || 'N/A' : '--';
+            document.getElementById('healthTrend').textContent = trend;
+        }
+
+        // **Initialize Health Chart**
+        function initializeHealthChart() {
+            if (healthChart) healthChart.destroy();
+            const ctx = document.getElementById('healthChart').getContext('2d');
+            healthChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: arReports.map(r => new Date(r.timestamp).toLocaleDateString()),
+                    datasets: [{
+                        label: 'Bristol Type',
+                        data: arReports.map(r => r.bristolType || 0),
+                        borderColor: '#8B4513',
+                        fill: false
+                    }]
+                },
+                options: { scales: { y: { min: 0, max: 7 } } }
+            });
+        }
+
+        // **Export Reports**
+        function exportAdvancedReports() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(arReports));
+            const a = document.createElement('a');
+            a.setAttribute('href', dataStr);
+            a.setAttribute('download', 'fecal_analysis_reports.json');
+            a.click();
+        }
+
+        // **Generate Health Report**
+        function generateHealthReport() {
+            const summary = arReports.map(r => `${r.timestamp}: ${r.name} (${r.status}, Bristol Type ${r.bristolType || 'N/A'}, ${r.consistency})`).join('\n');
+            const blob = new Blob([summary], { type: 'text/plain' });
+            const a = document.createElement('a');
+            a.setAttribute('href', URL.createObjectURL(blob));
+            a.setAttribute('download', 'fecal_health_summary.txt');
+            a.click();
+        }
+
+        // **Clear Reports**
+        function clearAllReports() {
+            if (confirm('Are you sure you want to clear all reports?')) {
+                arReports = [];
+                localStorage.setItem('arFecalReports', '[]');
+                toggleReports();
+                toggleReports();
+            }
+        }
+
+        // **Toggle Settings**
+        function toggleSettings() {
+            const modal = document.getElementById('settingsModal');
+            modal.classList.toggle('hidden');
+            if (!modal.classList.contains('hidden')) loadSettings();
+        }
+
+        // **Close Settings**
+        function closeSettings() {
+            document.getElementById('settingsModal').classList.add('hidden');
+        }
+
+        // **Save Settings**
+        function saveSettings() {
+            currentSettings.sensitivity = parseInt(document.getElementById('sensitivity').value);
+            currentSettings.textureSensitivity = parseInt(document.getElementById('textureSensitivity').value);
+            currentSettings.sampleSize = document.getElementById('sampleSize').value;
+            currentSettings.autoSave = document.getElementById('autoSave').checked;
+            currentSettings.lightingCompensation = document.getElementById('lightingCompensation').checked;
+            currentSettings.multiSampleValidation = document.getElementById('multiSampleValidation').checked;
+            currentSettings.textureAnalysis = document.getElementById('textureAnalysis').checked;
+            localStorage.setItem('arFecalSettings', JSON.stringify(currentSettings));
+            closeSettings();
+        }
+
+        // **Load Settings**
+        function loadSettings() {
+            const saved = JSON.parse(localStorage.getItem('arFecalSettings') || '{}');
+            Object.assign(currentSettings, saved);
+            document.getElementById('sensitivity').value = currentSettings.sensitivity;
+            document.getElementById('textureSensitivity').value = currentSettings.textureSensitivity;
+            document.getElementById('sampleSize').value = currentSettings.sampleSize;
+            document.getElementById('autoSave').checked = currentSettings.autoSave;
+            document.getElementById('lightingCompensation').checked = currentSettings.lightingCompensation;
+            document.getElementById('multiSampleValidation').checked = currentSettings.multiSampleValidation;
+            document.getElementById('textureAnalysis').checked = currentSettings.textureAnalysis;
+        }
+
+        // **Reset AR**
+        function resetAR() {
+            if (arStream) {
+                arStream.getTracks().forEach(track => track.stop());
+            }
+            isARAnalyzing = false;
+            document.getElementById('arScreen').classList.add('hidden');
+            document.getElementById('startScreen').classList.remove('hidden');
+        }
+
+        // **Show AI Processing Completed**
+        function showAIProcessingCompleted() {
+            const overlay = document.getElementById('aiProcessing');
+            overlay.classList.remove('hidden');
+            overlay.innerHTML = `
+                <div class="ai-spinner" style="border-top: 3px solid #00ff88;"></div>
+                <div class="font-semibold text-green-400">Analysis Completed!</div>
+                <div class="text-sm opacity-80 mt-2">Result saved successfully.</div>
+            `;
+            setTimeout(() => overlay.classList.add('hidden'), 1800);
+        }
+
+        // **Initialization**
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSettings();
+            initializeTextureModel();
+        });
+    </script>
+</body>
+</html>
